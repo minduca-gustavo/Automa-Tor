@@ -1,0 +1,33 @@
+{
+  "manifest_version": 2,
+  "name": "Gerador de PJC",
+  "version": "0.1.0",
+  "description": "Converte a Ficha de Liquidação produzida pela LLM em arquivo .pjc importável no PJe-Calc.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gerador-pjc@trt15.sc-bauru"
+    }
+  },
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/pjecalc/*"
+      ],
+      "js": [
+        "auxiliares.js",
+        "ui.js",
+        "automaTor-base.js",
+        "automaTor-vocabulario.js",
+        "automaTor-padroes.js",
+        "automaTor-montador.js",
+        "automaTor-extrator.js",
+        "painel.js",
+        "principal.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
