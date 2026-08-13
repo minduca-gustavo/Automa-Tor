@@ -146,10 +146,47 @@ const PJC_PADRAO_REFLEXO_POR_ASSUNTO = {
         multiplicador: 0.5,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
         ocorrenciaDePagamento: 'DESLIGAMENTO',
+        caracteristica: 'COMUM',
         variacao:      'FIXA',
         integralizar:  'SIM',
         incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
     },
+}
+
+
+// ── integralizar por verba-base ───────────────────────────────
+//
+// "Integralizar" manda o reflexo tomar o valor CHEIO da competência, e não o
+// que a verba-base efetivamente apurou. Para aviso prévio, férias e 13º é o
+// que se quer. Para saldo de salário, não: a verba vale três dias, e
+// integralizar faz o reflexo incidir sobre a remuneração inteira do mês.
+//
+// Nos .PJC de referência o calculista deixou justamente
+// integralizar=NAO no reflexo sobre saldo de salário e SIM nos demais.
+
+const PJC_NAO_INTEGRALIZAR_BASE = [
+    8823,   // Saldo de Salário
+]
+
+function pjcAjustarIntegralizacao(ficha) {
+    const avisos = []
+    const porNome = {}
+    ;(ficha.verbas || []).forEach(v => { porNome[v.nome] = v })
+
+    ;(ficha.verbas || []).forEach(v => {
+        if (v.tipo !== 'REFLEXO' || v.integralizarPorBase) return
+        const bases = v.baseVerbas || []
+        const alguma = bases.some(n => {
+            const b = porNome[n]
+            return b && PJC_NAO_INTEGRALIZAR_BASE.indexOf(b.assuntoCnj) >= 0
+        })
+        if (alguma && v.integralizar !== 'NAO') {
+            v.integralizar = 'NAO'
+            avisos.push('"' + v.nome + '": integralizar=NÃO, porque a verba-base é ' +
+                'apurada por dias — integralizada, o reflexo incidiria sobre o mês cheio')
+        }
+    })
+    return avisos
 }
 
 
@@ -271,6 +308,7 @@ function pjcAplicarPadroes(ficha) {
     if (!ficha || !Array.isArray(ficha.verbas)) return avisos
 
     avisos = avisos.concat(pjcGerarHistoricosDaRemuneracao(ficha))
+    avisos = avisos.concat(pjcAjustarIntegralizacao(ficha))
 
     const temHistorico = (ficha.historicosSalariais || []).length > 0
 
