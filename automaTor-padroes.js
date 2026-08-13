@@ -140,61 +140,6 @@ const PJC_PADRAO_POR_ASSUNTO = {
 }
 
 
-// ── perfil do reflexo ─────────────────────────────────────────
-//
-// A multa do Art. 467 é reflexo de 50% sobre a verba rescisória, sem
-// incidência de encargos. Vale para qualquer reflexo de assunto 2210.
-
-const PJC_PADRAO_REFLEXO_POR_ASSUNTO = {
-    2210: {   // Multa do Art. 467
-        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
-        multiplicador: 0.5,
-        quantidade:    { tipo: 'INFORMADA', valor: 1 },
-        ocorrenciaDePagamento: 'DESLIGAMENTO',
-        caracteristica: 'COMUM',
-        variacao:      'FIXA',
-        integralizar:  'SIM',
-        incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
-    },
-}
-
-
-// ── integralizar por verba-base ───────────────────────────────
-//
-// "Integralizar" manda o reflexo tomar o valor CHEIO da competência, e não o
-// que a verba-base efetivamente apurou. Para aviso prévio, férias e 13º é o
-// que se quer. Para saldo de salário, não: a verba vale três dias, e
-// integralizar faz o reflexo incidir sobre a remuneração inteira do mês.
-//
-// Nos .PJC de referência o calculista deixou justamente
-// integralizar=NAO no reflexo sobre saldo de salário e SIM nos demais.
-
-const PJC_NAO_INTEGRALIZAR_BASE = [
-    8823,   // Saldo de Salário
-]
-
-function pjcAjustarIntegralizacao(ficha) {
-    const avisos = []
-    const porNome = {}
-    ;(ficha.verbas || []).forEach(v => { porNome[v.nome] = v })
-
-    ;(ficha.verbas || []).forEach(v => {
-        if (v.tipo !== 'REFLEXO' || v.integralizarPorBase) return
-        const bases = v.baseVerbas || []
-        const alguma = bases.some(n => {
-            const b = porNome[n]
-            return b && PJC_NAO_INTEGRALIZAR_BASE.indexOf(b.assuntoCnj) >= 0
-        })
-        if (alguma && v.integralizar !== 'NAO') {
-            v.integralizar = 'NAO'
-            avisos.push('"' + v.nome + '": integralizar=NÃO, porque a verba-base é ' +
-                'apurada por dias — integralizada, o reflexo incidiria sobre o mês cheio')
-        }
-    })
-    return avisos
-}
-
-
 // ── padrão final ──────────────────────────────────────────────
 //
 // Última rede: verba calculada que não casou com nenhum perfil.
@@ -329,11 +274,7 @@ function pjcAplicarPadroes(ficha) {
         const usados = []
 
         for (const campo of ['base', 'divisor', 'multiplicador', 'quantidade',
-                             'ocorrenciaDePagamento', 'variacao', 'integralizar',
-                             'caracteristica', 'proporcionalizarBase',
-                             'proporcionalizarHistorico', 'excluirFaltaJustificada',
-                             'excluirFaltaNaoJustificada', 'excluirFeriasGozadas',
-                             'incidenciaINSS', 'incidenciaIRPF', 'incidenciaFGTS']) {
+                             'ocorrenciaDePagamento']) {
             if (perfil[campo] === undefined) continue
             if (v[campo] !== undefined && v[campo] !== null) continue
             v[campo] = _pjc_copiar(perfil[campo])

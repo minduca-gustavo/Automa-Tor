@@ -28,6 +28,12 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
+  /* Carimbo de versão. Vai para o campo de comentários do PJC e é exposto em
+     PjcMontador.VERSAO, para que o painel possa exibi-lo. Sem ele, um arquivo
+     gerado por código antigo é indistinguível de um gerado pelo atual — e já
+     custou duas rodadas de diagnóstico. */
+  var VERSAO = "automaTor 0.8";
+
   var Dom = {
     parser: typeof DOMParser !== "undefined" ? new DOMParser() : null,
     serializer: typeof XMLSerializer !== "undefined" ? new XMLSerializer() : null
@@ -590,12 +596,32 @@
     });
   }
 
+  /* Busca a verba na biblioteca — o conjunto de verbas conferidas por
+     calculista, guardadas inteiras. Copiar a verba pronta é o que impede o
+     vazamento de campo alheio: só o que a Ficha manda trocar é trocado.
+
+     Casa por nome normalizado, e também por prefixo: o PJe-Calc grava o
+     reflexo como "MULTA ... SOBRE X SOBRE X" (o rótulo do modelo mais a verba
+     base), enquanto a Ficha traz "MULTA ... SOBRE X". */
+  function chaveDeBusca(nome) {
+    var t = String(nome || "");
+    if (t.normalize) t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return t.toUpperCase().split(/\s+/).join(" ").trim();
+  }
+
   function moldeDaVerba(base, v) {
-    if (v.tipo === "INFORMADA") return base.moldes.informada;
-    if (v.tipo === "REFLEXO") return base.moldes.reflexo;
-    return (v.base || {}).tipo === "HISTORICO_SALARIAL"
-      ? base.moldes.calculadaHistorico
-      : base.moldes.calculadaTabelada;
+    var biblioteca = base.biblioteca || {};
+    var alvo = chaveDeBusca(v.nome);
+
+    if (biblioteca[alvo]) return biblioteca[alvo];
+
+    var chaves = Object.keys(biblioteca);
+    for (var i = 0; i < chaves.length; i++) {
+      if (chaves[i].indexOf(alvo) === 0 || alvo.indexOf(chaves[i]) === 0) {
+        return biblioteca[chaves[i]];
+      }
+    }
+    return null;
   }
 
   function aplicarVerbas(doc, ficha, base) {
@@ -604,8 +630,17 @@
     var c = ficha.contrato || {};
     var nos = {};
 
+    var semMolde = [];
+
     ficha.verbas.forEach(function (v, ordem) {
-      var no = reidentificar(fragmento(doc, moldeDaVerba(base, v)));
+      var xmlMolde = moldeDaVerba(base, v);
+      if (!xmlMolde) {
+        // Sem verba conferida na biblioteca, inventar a parametrização é o
+        // caminho para a conta errada silenciosa. Melhor não lançar e avisar.
+        semMolde.push(v.nome);
+        return;
+      }
+      var no = reidentificar(fragmento(doc, xmlMolde));
       texto(no, "nome", v.nome);
       texto(no, "descricao", v.descricao || v.nome);
       texto(no, "ordem", ordem + 1);
@@ -662,22 +697,6 @@
         }
       } else {
         if (v.comportamento) texto(no, "comportamentoDoReflexo", v.comportamento);
-        // A FormulaReflexo tem os mesmos operadores da calculada; sem escrevê-los
-        // o clone do molde conserva os do reflexo que lhe deu origem.
-        var R = caminho(no, "formula/FormulaReflexo");
-        if (v.divisor) {
-          texto(R, "divisor/Divisor/tipo", v.divisor.tipo);
-          texto(R, "divisor/Divisor/outroValor",
-            v.divisor.tipo === "OUTRO_VALOR" ? v.divisor.valor : null);
-        }
-        if (v.multiplicador != null) {
-          texto(R, "multiplicador/Multiplicador/outroValor", v.multiplicador);
-        }
-        if (v.quantidade) {
-          texto(R, "quantidade/Quantidade/tipo", v.quantidade.tipo);
-          texto(R, "quantidade/Quantidade/valorInformado",
-            v.quantidade.tipo === "AVOS" ? null : v.quantidade.valor);
-        }
       }
 
       // o molde vem com os vínculos da verba original; todos são refeitos
@@ -707,9 +726,20 @@
       alvo.appendChild(no);
     });
 
+    if (semMolde.length) {
+      // No arquivo vai só a contagem, pelo limite do campo; a lista inteira
+      // aparece no painel, onde não há limite.
+      // No arquivo cabe pouco: vai a lista até onde couber, truncada. A versão
+      // inteira aparece no painel, onde não há limite.
+      registrarPendencia(doc, "Nao lancadas: " + semMolde.join("; "));
+      pendenciasDetalhadas.push("Verbas NÃO lançadas por falta de modelo conferido: " +
+        semMolde.join("; ") + ". Lance-as manualmente no PJe-Calc.");
+    }
+
     // segunda passada: reflexos e quantidades apontam para verbas já criadas
     ficha.verbas.forEach(function (v) {
       var no = nos[v.nome];
+      if (!no) return;
       if (v.tipo === "REFLEXO") {
         var itens = limpar(caminho(no, "formula/FormulaReflexo/baseVerba/BaseVerba/itens/List"));
         var idFormula = texto(no, "formula/FormulaReflexo/id");
@@ -769,7 +799,50 @@
     });
   }
 
+  /* As pendências vão para o campo de comentários do cálculo: é onde o
+     servidor as encontra ao abrir o arquivo, sem depender de ter visto o
+     painel da extensão. */
+  /* O campo comentarios do banco do PJe-Calc tem 255 caracteres — medido por
+     tentativa. Texto maior faz a gravação falhar em silêncio, e foi o que
+     recusou sete importações seguidas: o arquivo era válido em tudo, menos no
+     tamanho deste campo. A margem cobre o carimbo de versão, que é acrescentado
+     depois das pendências. Contam-se caracteres, não bytes: os acentos viram
+     &#NNN; no XML, mas o banco guarda o texto decodificado. */
+  var LIMITE_COMENTARIOS = 250;
+
+  function registrarPendencia(doc, texto_) {
+    var C = doc.documentElement;
+    var no = filho(C, "comentarios");
+    if (!no) {
+      no = doc.createElement("comentarios");
+      C.appendChild(no);
+    }
+    var atual = (no.textContent || "").trim();
+    if (atual === "null") atual = "";
+    var novo = atual ? atual + " | " + texto_ : texto_;
+    if (novo.length > LIMITE_COMENTARIOS) {
+      novo = novo.slice(0, LIMITE_COMENTARIOS - 3) + "...";
+    }
+    while (no.firstChild) no.removeChild(no.firstChild);
+    no.appendChild(doc.createTextNode(novo));
+  }
+
   // ------------------------------------------------------------ renumeração ---
+
+  /* O <versao> é o controle de concorrência do banco (JPA). Herdado de um
+     cálculo conferido, ele chega ao PJe-Calc dizendo "esta linha já existe na
+     versão 22" para um registro que está sendo criado agora — e a importação
+     falha sem mensagem. Todo objeto novo nasce na versão zero. */
+  function zerarVersoes(doc) {
+    var nos = doc.getElementsByTagName("*"), i, n = 0;
+    for (i = 0; i < nos.length; i++) {
+      if (nos[i].nodeName === "versao") {
+        nos[i].textContent = "0";
+        n++;
+      }
+    }
+    return n;
+  }
 
   function renumerar(doc, base) {
     // Bijeção global: números repetidos entre tipos diferentes continuam
@@ -832,9 +905,12 @@
     });
   }
 
+  var pendenciasDetalhadas = [];
+
   function montarXml(ficha, base, opcoes) {
     opcoes = opcoes || {};
     proximoIdNovo = 900000;
+    pendenciasDetalhadas = [];
     exigir(Dom.parser && Dom.serializer,
       "DOMParser/XMLSerializer indisponíveis — chame configurarDom()");
     exigir(base && base.baseXml, "insumo pjc-base.json ausente ou inválido");
@@ -847,6 +923,8 @@
     aplicarPeriodos(doc, ficha);
     aplicarColecoes(doc, ficha, base);
     aplicarVerbas(doc, ficha, base);
+    zerarVersoes(doc);
+    registrarPendencia(doc, "Gerado por " + VERSAO);
     renumerar(doc, opcoes.primeiroId || 1);
 
     var orfaos = conferirGrafo(doc);
@@ -854,6 +932,10 @@
       "grafo inconsistente: internalRef sem id correspondente (" + orfaos.join(", ") + ")");
 
     var corpo = Dom.serializer.serializeToString(doc.documentElement);
+    pendenciasDetalhadas.forEach(function (linha) {
+      if (avisos.indexOf(linha) < 0) avisos.push(linha);
+    });
+
     return {
       xml: '<?xml version="1.0" encoding="ISO-8859-1"?>' + paraAscii(corpo),
       avisos: avisos
@@ -947,6 +1029,7 @@
     nomeDoArquivo: nomeDoArquivo,
     paraEpoch: paraEpoch,
     deEpoch: deEpoch,
+    VERSAO: VERSAO,
     VOCABULARIO: VOCABULARIO,
     listaDe: listaDe,
     ErroDeFicha: ErroDeFicha

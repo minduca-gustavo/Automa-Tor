@@ -129,31 +129,41 @@ async function pjcGerar() {
 // externo. O deflate vem do CompressionStream, nativo no Firefox.
 
 async function _pjc_empacotar(xml, nome) {
-    const bytes = new Uint8Array(xml.length)
-    for (let i = 0; i < xml.length; i++) bytes[i] = xml.charCodeAt(i) & 0xFF
+    const dados = _pjc_bytesAscii(xml)
 
-    // O deflate é opcional: o zip aceita entrada armazenada (método 0), e o
-    // PJe-Calc lê os dois. Se o CompressionStream falhar — em content script
-    // ele às vezes aborta —, o arquivo sai sem compressão em vez de não sair.
-    let comprimido = null
-    try {
-        comprimido = await _pjc_deflate(bytes)
-    } catch (e) {
-        console.warn('[pjc] deflate indisponível, gravando sem compressão:', e)
+    // Mesmo caminho da versão de console, que comprovadamente gera arquivos
+    // aceitos pelo PJe-Calc. Sem CompressionStream — ou se ele falhar — o zip
+    // sai com a entrada armazenada: o PJe-Calc lê os dois formatos, e arquivo
+    // grande é melhor que arquivo nenhum.
+    if (typeof CompressionStream === 'function') {
+        try {
+            const comprimido = await _pjc_deflate(dados)
+            return PjcMontador.empacotar(xml, nome, () => comprimido)
+        } catch (e) {
+            console.warn('[pjc] deflate falhou, gravando sem compressão:', e)
+        }
     }
 
-    if (comprimido) {
-        return PjcMontador.empacotar(xml, nome, () => comprimido, 8)
-    }
-    return PjcMontador.empacotar(xml, nome, b => b, 0)
+    // Troca o método de compressão nos dois cabeçalhos — 8 no local, 10 no
+    // central, deslocamentos fixos de um zip de entrada única.
+    const zip = PjcMontador.empacotar(xml, nome, d => d)
+    const central = 30 + _pjc_bytesAscii(nome).length + dados.length
+    zip[8] = 0; zip[9] = 0
+    zip[central + 10] = 0; zip[central + 11] = 0
+    return zip
 }
 
 
-// Espera cada etapa do stream: sem os await, o writer pode ser coletado
-// antes de terminar e a operação é abortada.
-async function _pjc_deflate(bytes) {
-    if (typeof CompressionStream === 'undefined') return null
+function _pjc_bytesAscii(s) {
+    const b = new Uint8Array(s.length)
+    for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 0xFF
+    return b
+}
 
+
+// Cada etapa aguardada: sem os await, o writer pode ser coletado antes de
+// terminar e a operação aborta no meio.
+async function _pjc_deflate(bytes) {
     const cs = new CompressionStream('deflate-raw')
     const escritor = cs.writable.getWriter()
     const leitura = new Response(cs.readable).arrayBuffer()
@@ -162,8 +172,7 @@ async function _pjc_deflate(bytes) {
     await escritor.write(bytes)
     await escritor.close()
 
-    const buffer = await leitura
-    return new Uint8Array(buffer)
+    return new Uint8Array(await leitura)
 }
 
 
