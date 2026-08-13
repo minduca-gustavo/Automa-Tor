@@ -24,52 +24,71 @@
 
 const PJC_PADRAO_POR_CARACTERISTICA = {
 
-    // Aviso prévio: 30 dias apurados pelo sistema (a projeção da Lei 12.506
-    // entra pelo próprio PJe-Calc), divididos por 30.
+    // Aviso prévio: maior remuneração ÷ 30, quantidade APURADA com 30 no
+    // campo — o sistema recalcula a projeção da Lei 12.506 a partir daí.
+    // Sem incidência de INSS nem de IRPF; com FGTS.
     AVISO_PREVIO: {
         base:          { tipo: 'MAIOR_REMUNERACAO' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 30 },
         multiplicador: 1,
         quantidade:    { tipo: 'APURADA', valor: 30 },
         ocorrenciaDePagamento: 'DESLIGAMENTO',
+        variacao:      'FIXA',
+        incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: true,
     },
 
-    // 13º e férias são AVOS: o sistema conta os duodécimos do período. Informar
-    // quantidade fixa aqui produzia conta errada — era o problema relatado.
+    // 13º: histórico salarial ÷ 12 em AVOS. Incide em tudo.
     DECIMO_TERCEIRO_SALARIO: {
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 12 },
         multiplicador: 1,
         quantidade:    { tipo: 'AVOS' },
         ocorrenciaDePagamento: 'DEZEMBRO',
+        variacao:      'FIXA',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
+    // Férias + 1/3: maior remuneração ÷ 12 em AVOS, multiplicador com as oito
+    // casas que o sistema grava. Indenizatória: não incide em nada.
     FERIAS: {
         base:          { tipo: 'MAIOR_REMUNERACAO' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 12 },
         multiplicador: 1.33333333,
         quantidade:    { tipo: 'AVOS' },
         ocorrenciaDePagamento: 'PERIODO_AQUISITIVO',
+        variacao:      'FIXA',
+        incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
     },
 }
 
 
 // ── por assunto ───────────────────────────────────────────────
 //
-// Para verbas sem característica própria, mas de parametrização
-// conhecida. O código é o assuntoCnj da tabela do PJe-Calc.
+// Para verbas sem característica própria. O código é o assuntoCnj.
 
 const PJC_PADRAO_POR_ASSUNTO = {
 
-    8823: {   // Saldo de Salário — dias trabalhados no mês da rescisão
+    8823: {   // Saldo de Salário — histórico ÷ 1, quantidade 1
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
         multiplicador: 1,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
         ocorrenciaDePagamento: 'DESLIGAMENTO',
+        variacao:      'FIXA',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
-    2086: {   // Horas Extras — quantidade vem do cartão, se houver
+    2212: {   // Multa do Art. 477 — uma remuneração
+        base:          { tipo: 'MAIOR_REMUNERACAO' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 1,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'DESLIGAMENTO',
+        variacao:      'FIXA',
+        incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
+    },
+
+    2086: {   // Horas Extras
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'CARGA_HORARIA' },
         multiplicador: 1.5,
@@ -112,6 +131,24 @@ const PJC_PADRAO_POR_ASSUNTO = {
         divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
         multiplicador: 1,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
+    },
+}
+
+
+// ── perfil do reflexo ─────────────────────────────────────────
+//
+// A multa do Art. 467 é reflexo de 50% sobre a verba rescisória, sem
+// incidência de encargos. Vale para qualquer reflexo de assunto 2210.
+
+const PJC_PADRAO_REFLEXO_POR_ASSUNTO = {
+    2210: {   // Multa do Art. 467
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 0.5,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'DESLIGAMENTO',
+        variacao:      'FIXA',
+        integralizar:  'SIM',
+        incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
     },
 }
 
@@ -238,16 +275,19 @@ function pjcAplicarPadroes(ficha) {
     const temHistorico = (ficha.historicosSalariais || []).length > 0
 
     ficha.verbas.forEach(v => {
-        if (v.tipo !== 'CALCULADA') return
+        if (v.tipo === 'INFORMADA') return
 
-        const perfil = PJC_PADRAO_POR_CARACTERISTICA[v.caracteristica]
-            || PJC_PADRAO_POR_ASSUNTO[v.assuntoCnj]
-            || PJC_PADRAO_GENERICO
+        const perfil = (v.tipo === 'REFLEXO')
+            ? (PJC_PADRAO_REFLEXO_POR_ASSUNTO[v.assuntoCnj] || {})
+            : (PJC_PADRAO_POR_CARACTERISTICA[v.caracteristica]
+                || PJC_PADRAO_POR_ASSUNTO[v.assuntoCnj]
+                || PJC_PADRAO_GENERICO)
 
         const usados = []
 
         for (const campo of ['base', 'divisor', 'multiplicador', 'quantidade',
-                             'ocorrenciaDePagamento']) {
+                             'ocorrenciaDePagamento', 'variacao', 'integralizar',
+                             'incidenciaINSS', 'incidenciaIRPF', 'incidenciaFGTS']) {
             if (perfil[campo] === undefined) continue
             if (v[campo] !== undefined && v[campo] !== null) continue
             v[campo] = _pjc_copiar(perfil[campo])
@@ -263,7 +303,8 @@ function pjcAplicarPadroes(ficha) {
 
         // Base em histórico sem histórico na Ficha não calcula nada; a maior
         // remuneração é o substituto que o próprio sistema oferece.
-        if (!temHistorico && v.base && v.base.tipo === 'HISTORICO_SALARIAL') {
+        if (v.tipo === 'CALCULADA' && !temHistorico &&
+            v.base && v.base.tipo === 'HISTORICO_SALARIAL') {
             v.base = { tipo: 'MAIOR_REMUNERACAO' }
             usados.push('base→MAIOR_REMUNERACAO (sem histórico na Ficha)')
         }

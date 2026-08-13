@@ -40,36 +40,28 @@
 
   // ---------------------------------------------------------------- datas ---
 
-  var TZ = "America/Sao_Paulo";
+  /* O PJe-Calc grava as datas como meia-noite em UTC-03:00 FIXO, sem horário de
+     verão. Confirmado no arquivo de referência: 01/01/2010 está gravado como
+     1262314800000, que em fuso real é 01:00 (-02:00, horário de verão) e em
+     -03:00 fixo é exatamente 00:00.
 
-  function deslocamentoMs(instante) {
-    // Offset do fuso no instante dado, obtido do ICU — cobre o horário de
-    // verão histórico, que valeu no Brasil até 2019 e afeta contratos antigos.
-    var fmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: TZ, hour12: false,
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit"
-    });
-    var p = {};
-    fmt.formatToParts(new Date(instante)).forEach(function (x) { p[x.type] = x.value; });
-    var local = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
-    return local - instante;
-  }
+     Usar o fuso real deslocava as competências de novembro a fevereiro dos anos
+     com horário de verão — o sistema as lia como 23:00 do dia anterior, ou seja,
+     do mês anterior, e a competência sumia da tela. Era a causa dos "buracos" no
+     histórico, e explica por que 2020/21 e 2021/22 escapavam: o horário de verão
+     acabou em 2019. */
+  var DESLOCAMENTO_FIXO = -3 * 60 * 60 * 1000;
 
   function paraEpoch(iso) {
     if (iso === null || iso === undefined || iso === "") return null;
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso).trim());
     if (!m) throw new ErroDeFicha("data fora do formato AAAA-MM-DD: " + iso);
-    var utc = Date.UTC(+m[1], +m[2] - 1, +m[3]);
-    var ts = utc;
-    for (var i = 0; i < 3; i++) ts = utc - deslocamentoMs(ts);
-    return ts;
+    return Date.UTC(+m[1], +m[2] - 1, +m[3]) - DESLOCAMENTO_FIXO;
   }
 
   function deEpoch(ms) {
     if (ms === null || ms === "null" || ms === undefined) return null;
-    var d = new Date(+ms + deslocamentoMs(+ms));
-    return d.toISOString().slice(0, 10);
+    return new Date(+ms + DESLOCAMENTO_FIXO).toISOString().slice(0, 10);
   }
 
   // ------------------------------------------------------------ utilidades ---
@@ -619,8 +611,14 @@
       texto(no, "periodoInicial", paraEpoch((v.periodo || {}).inicio || c.admissao));
       texto(no, "periodoFinal", paraEpoch((v.periodo || {}).fim || c.demissao));
       texto(no, "tipoVariacaoParcela", v.variacao || "VARIAVEL");
-      if (v.ocorrenciaDePagamento) texto(no, "ocorrenciaDePagamento", v.ocorrenciaDePagamento);
-      if (v.caracteristica) texto(no, "caracteristica", v.caracteristica);
+      // Sempre escrever: o clone do molde traz a característica da verba que
+      // lhe deu origem, e um reflexo herdava AVISO_PREVIO sem nunca declará-lo.
+      texto(no, "caracteristica", v.caracteristica || "COMUM");
+      texto(no, "ocorrenciaDePagamento", v.ocorrenciaDePagamento || "DESLIGAMENTO");
+      texto(no, "aplicarProporcionalidade", v.proporcionalizar === true);
+      texto(no, "excluirFaltaJustificada", v.excluirFaltaJustificada === true);
+      texto(no, "excluirFaltaNaoJustificada", v.excluirFaltaNaoJustificada === true);
+      texto(no, "excluirFeriasGozadas", v.excluirFeriasGozadas === true);
       texto(no, "assuntoCnj/AssuntoCnj/externalRef", v.assuntoCnj);
 
       var salarial = v.natureza !== "INDENIZATORIA";
@@ -645,12 +643,33 @@
           texto(F, "quantidade/Quantidade/tipo", v.quantidade.tipo);
           // AVOS e APURADA são contados pelo sistema: o campo fica nulo, como
           // no .PJC de referência. Zero ali é lido como quantidade zero.
-          var qtdFixa = (v.quantidade.tipo === "INFORMADA");
+          // AVOS e as importadas são contadas pelo sistema e ficam nulas. A
+          // APURADA guarda o valor de partida (30 dias, no aviso prévio) — foi
+          // assim que o calculista deixou no .PJC de referência.
+          var semValor = (v.quantidade.tipo === "AVOS" ||
+                          v.quantidade.tipo === "IMPORTADA_DO_CARTAO" ||
+                          v.quantidade.tipo === "IMPORTADA_DO_CALENDARIO");
           texto(F, "quantidade/Quantidade/valorInformado",
-            qtdFixa ? v.quantidade.valor : null);
+            semValor ? null : v.quantidade.valor);
         }
       } else {
         if (v.comportamento) texto(no, "comportamentoDoReflexo", v.comportamento);
+        // A FormulaReflexo tem os mesmos operadores da calculada; sem escrevê-los
+        // o clone do molde conserva os do reflexo que lhe deu origem.
+        var R = caminho(no, "formula/FormulaReflexo");
+        if (v.divisor) {
+          texto(R, "divisor/Divisor/tipo", v.divisor.tipo);
+          texto(R, "divisor/Divisor/outroValor",
+            v.divisor.tipo === "OUTRO_VALOR" ? v.divisor.valor : null);
+        }
+        if (v.multiplicador != null) {
+          texto(R, "multiplicador/Multiplicador/outroValor", v.multiplicador);
+        }
+        if (v.quantidade) {
+          texto(R, "quantidade/Quantidade/tipo", v.quantidade.tipo);
+          texto(R, "quantidade/Quantidade/valorInformado",
+            v.quantidade.tipo === "AVOS" ? null : v.quantidade.valor);
+        }
       }
 
       // o molde vem com os vínculos da verba original; todos são refeitos
@@ -713,7 +732,8 @@
           listaH.appendChild(fragmento(doc,
             "<HistoricoSalarialDaVerba><id>" + idNovo() + "</id>" +
             "<tipoVinculoHistorico>BASE</tipoVinculoHistorico>" +
-            "<aplicarProporcionalidade>false</aplicarProporcionalidade>" +
+            "<aplicarProporcionalidade>" + (v.proporcionalizar === true) +
+            "</aplicarProporcionalidade>" +
             "<verbaDeCalculo><" + no.nodeName + "><internalRef>" + texto(no, "id") +
             "</internalRef></" + no.nodeName + "></verbaDeCalculo>" +
             "<historicoSalarial><HistoricoSalarial><internalRef>" + texto(hn, "id") +
