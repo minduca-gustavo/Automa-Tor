@@ -414,6 +414,8 @@
     texto(C, "hashCalculoCorreto", "false");
     texto(C, "hashAtualizacaoCorreto", "false");
     texto(C, "validado", "false");
+    // O cálculo nasce de arquivo, não da consulta ao PJe.
+    texto(C, "processoInformadoManualmente", "true");
 
     var g = filho(C, "gprec");
     if (g) {
@@ -631,6 +633,10 @@
       } else if (v.tipo === "CALCULADA") {
         var F = caminho(no, "formula/FormulaCalculada");
         texto(F, "baseTabelada/BaseTabelada/tipo", v.base.tipo);
+        // "Proporcionalizar" da aba Fórmula > Base de Cálculo. O molde vinha com
+        // true e marcava a caixa em toda verba gerada.
+        texto(F, "baseTabelada/BaseTabelada/aplicarProporcionalidade",
+          v.proporcionalizarBase === true);
         if (v.divisor) {
           texto(F, "divisor/Divisor/tipo", v.divisor.tipo);
           texto(F, "divisor/Divisor/outroValor",
@@ -651,6 +657,8 @@
                           v.quantidade.tipo === "IMPORTADA_DO_CALENDARIO");
           texto(F, "quantidade/Quantidade/valorInformado",
             semValor ? null : v.quantidade.valor);
+          texto(F, "quantidade/Quantidade/aplicarProporcionalidade",
+            v.quantidade.proporcionalizar === true);
         }
       } else {
         if (v.comportamento) texto(no, "comportamentoDoReflexo", v.comportamento);
@@ -732,7 +740,7 @@
           listaH.appendChild(fragmento(doc,
             "<HistoricoSalarialDaVerba><id>" + idNovo() + "</id>" +
             "<tipoVinculoHistorico>BASE</tipoVinculoHistorico>" +
-            "<aplicarProporcionalidade>" + (v.proporcionalizar === true) +
+            "<aplicarProporcionalidade>" + (v.proporcionalizarHistorico === true) +
             "</aplicarProporcionalidade>" +
             "<verbaDeCalculo><" + no.nodeName + "><internalRef>" + texto(no, "id") +
             "</internalRef></" + no.nodeName + "></verbaDeCalculo>" +

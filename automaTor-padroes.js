@@ -42,7 +42,7 @@ const PJC_PADRAO_POR_CARACTERISTICA = {
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 12 },
         multiplicador: 1,
-        quantidade:    { tipo: 'AVOS' },
+        quantidade:    { tipo: 'AVOS', proporcionalizar: true },
         ocorrenciaDePagamento: 'DEZEMBRO',
         variacao:      'FIXA',
         incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
@@ -68,11 +68,16 @@ const PJC_PADRAO_POR_CARACTERISTICA = {
 
 const PJC_PADRAO_POR_ASSUNTO = {
 
-    8823: {   // Saldo de Salário — histórico ÷ 1, quantidade 1
+    // Saldo de Salário: proporcionaliza pelo histórico (são dias do mês da
+    // rescisão) e exclui faltas não justificadas e férias gozadas.
+    8823: {
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
         multiplicador: 1,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        proporcionalizarHistorico: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
         ocorrenciaDePagamento: 'DESLIGAMENTO',
         variacao:      'FIXA',
         incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
@@ -325,6 +330,9 @@ function pjcAplicarPadroes(ficha) {
 
         for (const campo of ['base', 'divisor', 'multiplicador', 'quantidade',
                              'ocorrenciaDePagamento', 'variacao', 'integralizar',
+                             'caracteristica', 'proporcionalizarBase',
+                             'proporcionalizarHistorico', 'excluirFaltaJustificada',
+                             'excluirFaltaNaoJustificada', 'excluirFeriasGozadas',
                              'incidenciaINSS', 'incidenciaIRPF', 'incidenciaFGTS']) {
             if (perfil[campo] === undefined) continue
             if (v[campo] !== undefined && v[campo] !== null) continue
