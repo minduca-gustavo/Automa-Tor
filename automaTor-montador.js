@@ -696,7 +696,27 @@
             v.quantidade.proporcionalizar === true);
         }
       } else {
-        if (v.comportamento) texto(no, "comportamentoDoReflexo", v.comportamento);
+        texto(no, "comportamentoDoReflexo", v.comportamento || "VALOR_MENSAL");
+        texto(no, "periodoMediaReflexo", v.periodoMedia || "PERIODO_AQUISITIVO");
+        // MANTER conserva o valor apurado da verba-base; INTEGRALIZAR toma o mês
+        // cheio. O molde vinha com INTEGRALIZAR e contaminava todo reflexo.
+        texto(no, "tratamentoDaFracaoDeMesDoReflexo", v.tratamentoDaFracao || "MANTER");
+        // A FormulaReflexo tem os mesmos operadores da calculada; sem escrevê-los
+        // o clone do molde conserva os do reflexo que lhe deu origem.
+        var R = caminho(no, "formula/FormulaReflexo");
+        if (v.divisor) {
+          texto(R, "divisor/Divisor/tipo", v.divisor.tipo);
+          texto(R, "divisor/Divisor/outroValor",
+            v.divisor.tipo === "OUTRO_VALOR" ? v.divisor.valor : null);
+        }
+        if (v.multiplicador != null) {
+          texto(R, "multiplicador/Multiplicador/outroValor", v.multiplicador);
+        }
+        if (v.quantidade) {
+          texto(R, "quantidade/Quantidade/tipo", v.quantidade.tipo);
+          texto(R, "quantidade/Quantidade/valorInformado",
+            v.quantidade.tipo === "AVOS" ? null : v.quantidade.valor);
+        }
       }
 
       // o molde vem com os vínculos da verba original; todos são refeitos
