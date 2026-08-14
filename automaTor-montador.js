@@ -32,7 +32,7 @@
      PjcMontador.VERSAO, para que o painel possa exibi-lo. Sem ele, um arquivo
      gerado por código antigo é indistinguível de um gerado pelo atual — e já
      custou duas rodadas de diagnóstico. */
-  var VERSAO = "automaTor 0.8";
+  var VERSAO = "automaTor 0.9";
 
   var Dom = {
     parser: typeof DOMParser !== "undefined" ? new DOMParser() : null,
@@ -213,13 +213,23 @@
 
     // Padroniza em cima do próprio objeto: o resto da montagem lê o valor já
     // canônico, e a divergência vira aviso em vez de rodada de correção.
-    function checarVocabulario(dono, campo, lista, rotulo) {
+    /* descartavel: campo opcional com padrão seguro. Valor fora do vocabulário
+       é removido e o padrão do perfil assume — derrubar a Ficha inteira por
+       causa de um rótulo que a LLM inventou custa uma rodada e não protege
+       nada, já que o campo tem default conferido. */
+    function checarVocabulario(dono, campo, lista, rotulo, descartavel) {
       var valor = dono ? dono[campo] : undefined;
       if (valor === undefined || valor === null) return;
       var bom = padronizar(valor, lista);
       var valores = listaDe(lista);
       if (!valores.length) return;          // vocabulário não capturado: não barra
       if (valores.indexOf(bom) < 0) {
+        if (descartavel) {
+          avisos.push(rotulo + ": \"" + valor + "\" fora do vocabulário — " +
+            "campo ignorado, o padrão da verba assume");
+          delete dono[campo];
+          return;
+        }
         erros.push(rotulo + ": \"" + valor + "\" não pertence ao vocabulário (" +
           valores.join(", ") + ")");
         return;
@@ -272,7 +282,7 @@
       ficha.encargos.fgts = { destino: ficha.encargos.fgts };
     }
     if (ficha.encargos && ficha.encargos.fgts) {
-      checarVocabulario(ficha.encargos.fgts, "destino", "destinoDoFgts", "encargos.fgts.destino");
+      checarVocabulario(ficha.encargos.fgts, "destino", "destinoDoFgts", "encargos.fgts.destino", true);
     }
 
     if (!checar(Array.isArray(ficha.verbas) && ficha.verbas.length > 0,
@@ -280,19 +290,29 @@
       throw new ErroDeFicha(montarRelatorio(erros));
     }
 
+    /* Problema numa verba não derruba a Ficha inteira: a verba é descartada e
+       vai para as pendências, como acontece com a que não tem modelo na
+       biblioteca. O servidor recebe o arquivo com o que deu para lançar e a
+       lista do que falta — melhor que ficar sem arquivo nenhum. */
+    var descartadas = [];
+    function problemaNaVerba(v, msg) {
+      descartadas.push({ nome: v.nome || "(sem nome)", motivo: msg });
+      v.__descartar = true;
+    }
+
     var nomes = {};
     ficha.verbas.forEach(function (v, i) {
       var onde = "verbas[" + i + "]" + (v.nome ? " (" + v.nome + ")" : "");
-      if (checar(v.nome, onde + ": nome é obrigatório")) {
-        checar(!nomes[v.nome], onde + ": nome repetido — os reflexos referenciam a verba pelo nome");
-        nomes[v.nome] = true;
-      }
+      if (!v.nome) { problemaNaVerba(v, "sem nome"); return; }
+      if (nomes[v.nome]) { problemaNaVerba(v, "nome repetido"); return; }
+      nomes[v.nome] = true;
+
       checarVocabulario(v, "tipo", "tipoVerba", onde + ".tipo");
-      checar(v.tipo, onde + ": tipo é obrigatório");
-      checar(v.assuntoCnj, onde + ": assuntoCnj é obrigatório");
+      if (!v.tipo) { problemaNaVerba(v, "sem tipo"); return; }
+      if (!v.assuntoCnj) { problemaNaVerba(v, "sem assuntoCnj"); return; }
       checarVocabulario(v, "natureza", "natureza", onde + ".natureza");
-      checarVocabulario(v, "caracteristica", "caracteristica", onde + ".caracteristica");
-      checarVocabulario(v, "ocorrenciaDePagamento", "ocorrenciaDePagamento", onde + ".ocorrenciaDePagamento");
+      checarVocabulario(v, "caracteristica", "caracteristica", onde + ".caracteristica", true);
+      checarVocabulario(v, "ocorrenciaDePagamento", "ocorrenciaDePagamento", onde + ".ocorrenciaDePagamento", true);
       if (v.valorPago) checarVocabulario(v.valorPago, "tipo", "valorPago", onde + ".valorPago.tipo");
       if (v.periodo) {
         var pi = dataValida(onde + ".periodo.inicio", v.periodo.inicio);
@@ -312,14 +332,16 @@
           checarVocabulario(v.quantidade, "tipo", "quantidade", onde + ".quantidade.tipo");
         }
       } else if (v.tipo === "INFORMADA") {
-        checar(typeof v.valor === "number",
+        if (typeof v.valor !== "number") problemaNaVerba(v, "verba INFORMADA sem valor");
+        checar(true,
           onde + ": verba INFORMADA exige valor numérico. Se o título não fixou " +
           "quantia — saldo de salário, diferenças, verbas apuradas por dias —, " +
           "a verba é CALCULADA, com base, divisor, multiplicador e quantidade");
       } else if (v.tipo === "REFLEXO") {
-        checar(Array.isArray(v.baseVerbas) && v.baseVerbas.length,
-          onde + ": verba REFLEXO exige baseVerbas — a lista de verbas sobre as quais ela repercute");
-        checarVocabulario(v, "comportamento", "comportamentoDoReflexo", onde + ".comportamento");
+        if (!(Array.isArray(v.baseVerbas) && v.baseVerbas.length)) {
+          problemaNaVerba(v, "reflexo sem baseVerbas");
+        }
+        checarVocabulario(v, "comportamento", "comportamentoDoReflexo", onde + ".comportamento", true);
       }
 
       if (!v.fonte) avisos.push(onde + ": sem fonte nos autos");
@@ -328,7 +350,7 @@
     ficha.verbas.forEach(function (v, i) {
       var onde = "verbas[" + i + "]" + (v.nome ? " (" + v.nome + ")" : "");
       (v.baseVerbas || []).forEach(function (n) {
-        checar(nomes[n], onde + ": baseVerbas aponta para \"" + n + "\", que não existe na Ficha");
+        if (!nomes[n]) problemaNaVerba(v, "baseVerbas aponta para \"" + n + "\", ausente da Ficha");
       });
       if (v.base && Array.isArray(v.base.historicos)) {
         v.base.historicos.forEach(function (n) {
@@ -371,6 +393,14 @@
       avisos.push("Ficha sem histórico salarial: o PJe-Calc não terá evolução " +
         "salarial para reger as verbas mês a mês. Confira na importação se " +
         "isso corresponde ao título.");
+    }
+
+    if (descartadas.length) {
+      ficha.verbas = ficha.verbas.filter(function (v) { return !v.__descartar; });
+      descartadas.forEach(function (d) {
+        avisos.push('verba NÃO lançada: "' + d.nome + '" — ' + d.motivo);
+      });
+      pendenciasDaFicha = descartadas.map(function (d) { return d.nome; });
     }
 
     if (erros.length) throw new ErroDeFicha(montarRelatorio(erros));
@@ -746,14 +776,15 @@
       alvo.appendChild(no);
     });
 
-    if (semMolde.length) {
+    var faltantes = semMolde.concat(pendenciasDaFicha);
+    if (faltantes.length) {
       // No arquivo vai só a contagem, pelo limite do campo; a lista inteira
       // aparece no painel, onde não há limite.
       // No arquivo cabe pouco: vai a lista até onde couber, truncada. A versão
       // inteira aparece no painel, onde não há limite.
-      registrarPendencia(doc, "Nao lancadas: " + semMolde.join("; "));
-      pendenciasDetalhadas.push("Verbas NÃO lançadas por falta de modelo conferido: " +
-        semMolde.join("; ") + ". Lance-as manualmente no PJe-Calc.");
+      registrarPendencia(doc, "Nao lancadas: " + faltantes.join("; "));
+      pendenciasDetalhadas.push("Verbas NÃO lançadas: " + faltantes.join("; ") +
+        ". Lance-as manualmente no PJe-Calc.");
     }
 
     // segunda passada: reflexos e quantidades apontam para verbas já criadas
@@ -926,11 +957,13 @@
   }
 
   var pendenciasDetalhadas = [];
+  var pendenciasDaFicha = [];
 
   function montarXml(ficha, base, opcoes) {
     opcoes = opcoes || {};
     proximoIdNovo = 900000;
     pendenciasDetalhadas = [];
+    pendenciasDaFicha = [];
     exigir(Dom.parser && Dom.serializer,
       "DOMParser/XMLSerializer indisponíveis — chame configurarDom()");
     exigir(base && base.baseXml, "insumo pjc-base.json ausente ou inválido");
