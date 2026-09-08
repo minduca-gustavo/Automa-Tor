@@ -65,6 +65,7 @@ const PJC_PADRAO_POR_CARACTERISTICA = {
 // ── por assunto ───────────────────────────────────────────────
 //
 // Para verbas sem característica própria. O código é o assuntoCnj.
+// O campo 'tipo' documenta o tipo mais comum; a Ficha pode sobrepor.
 
 const PJC_PADRAO_POR_ASSUNTO = {
 
@@ -93,42 +94,102 @@ const PJC_PADRAO_POR_ASSUNTO = {
         incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
     },
 
-    2086: {   // Horas Extras
+    2086: {   // Horas Extras — padrão 50%; use 'percentual' na Ficha para outro valor
+        // TBVERBA id=16: quantidade=INFORMADA (o calculista entra o total de horas após importar;
+        // com cartão declarado na Ficha, o montador usa IMPORTADA_DO_CARTAO automaticamente).
+        // Exclui faltas e férias gozadas — confirmado nas flags do registro de referência.
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'CARGA_HORARIA' },
         multiplicador: 1.5,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        excluirFaltaJustificada: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
-    2140: {   // Intervalo Intrajornada
+    2140: {   // Intervalo Intrajornada — padrão 50%; use 'percentual' na Ficha para outro valor
+        // TBVERBA id=17: mesmo padrão das Horas Extras.
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'CARGA_HORARIA' },
         multiplicador: 1.5,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        excluirFaltaJustificada: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
-    2139: {   // Intervalo Interjornadas
+    2139: {   // Intervalo Interjornadas — idem
+        // TBVERBA id=19: mesmo padrão das Horas Extras.
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'CARGA_HORARIA' },
         multiplicador: 1.5,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        excluirFaltaJustificada: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
-    1663: {   // Adicional Noturno
+    // RSR (2426) não tem entrada aqui: o dump do banco confirma que
+    // TBVERBA não tem nenhum registro de RSR com STPVERBA='P' (Principal).
+    // RSR é sempre REFLEXO de HE, intrajornada ou adicional noturno.
+    // O perfil do reflexo está em PJC_PADRAO_REFLEXO_POR_ASSUNTO[2426].
+
+    1663: {   // Adicional Noturno — padrão 20%; use 'percentual' na Ficha para outro valor
+        // TBVERBA id=14: quantidade=INFORMADA (calculista entra as horas noturnas após importar).
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'CARGA_HORARIA' },
         multiplicador: 0.2,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        excluirFaltaJustificada: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
-    1666: {   // Adicional de Insalubridade
+    1666: {   // Adicional de Insalubridade — padrão grau médio 20%
+        // A sentença dita o grau; use 'percentual: 10/20/40' na Ficha.
         base:          { tipo: 'SALARIO_MINIMO' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
         multiplicador: 0.2,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'FIXA',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
-    1681: {   // Adicional de Periculosidade
+    1681: {   // Adicional de Periculosidade — 30% sobre o histórico
         base:          { tipo: 'HISTORICO_SALARIAL' },
         divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
         multiplicador: 0.3,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'FIXA',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
+    },
+
+    2452: {   // Salário Vencido / Retido — TBVERBA id=12; assunto distinto de 2458
+        // proporcionaliza pelo histórico e exclui faltas/férias, igual ao saldo de salário.
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 1,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        proporcionalizarHistorico: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 
     2458: {   // Salário / Diferença Salarial
@@ -136,17 +197,117 @@ const PJC_PADRAO_POR_ASSUNTO = {
         divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
         multiplicador: 1,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
+    },
+
+    55038: {  // Equiparação Salarial
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 1,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
+    },
+
+    2506: {   // Ajuda / Tíquete Alimentação
+        // TBVERBA id=179: STPVALOR='I' (Informada) — o sistema trata como informada.
+        // Este perfil só é acionado se tipo='CALCULADA' vier na Ficha (raro).
+        // Normalmente usar tipo='INFORMADA' com o valor fixado na sentença.
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 1,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'FIXA',
+        natureza:      'INDENIZATORIA',
+        incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
+    },
+
+    2663: {   // Abono Pecuniário de Férias — TBVERBA id=163
+        // Conversão de até 10 dias de férias em dinheiro. Não incide em nada.
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 1,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'PERIODO_AQUISITIVO',
+        variacao:      'FIXA',
+        incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
+    },
+
+    2604: {   // Adicional de Transferência — TBVERBA id=151 (25%)
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 0.25,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        proporcionalizarHistorico: true,
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'FIXA',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
+    },
+
+    2116: {   // Adicional de Sobreaviso — TBVERBA id=157
+        // 1/3 da hora-base, pelo tempo em sobreaviso (Súmula 428 do TST).
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'CARGA_HORARIA' },
+        multiplicador: 0.33333333,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        excluirFaltaJustificada: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
+    },
+
+    55142: {  // Adicional de Risco — TBVERBA id=134 (40% sobre o histórico)
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 0.4,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'FIXA',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
+    },
+
+    55365: {  // Adicional de Horas Extras (só o adicional, sem a hora-base) — TBVERBA id=140
+        // Usado quando salário base já integra a hora, e a condenação é só o adicional (50%).
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'CARGA_HORARIA' },
+        multiplicador: 0.5,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        excluirFaltaJustificada: true,
+        excluirFaltaNaoJustificada: true,
+        excluirFeriasGozadas: true,
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
+    },
+
+    55377: {  // Feriado em Dobro — TBVERBA id=146
+        // Trabalho em feriado: 2× o valor da hora, quantidade importada do calendário.
+        // O montador não suporta ICL/F nativamente — calculista ajusta após importar.
+        base:          { tipo: 'HISTORICO_SALARIAL' },
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 2,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        variacao:      'VARIAVEL',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 }
 
 
 // ── perfil do reflexo ─────────────────────────────────────────
 //
-// A multa do Art. 467 é reflexo de 50% sobre a verba rescisória, sem
-// incidência de encargos. Vale para qualquer reflexo de assunto 2210.
+// Aplicado quando v.tipo === 'REFLEXO'. O campo 'comportamento' define
+// como o PJe-Calc agrega o valor refletido.
 
 const PJC_PADRAO_REFLEXO_POR_ASSUNTO = {
-    2210: {   // Multa do Art. 467
+
+    2210: {   // Multa do Art. 467 — reflexo de 50% sobre a verba rescisória
         divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
         multiplicador: 0.5,
         quantidade:    { tipo: 'INFORMADA', valor: 1 },
@@ -154,12 +315,29 @@ const PJC_PADRAO_REFLEXO_POR_ASSUNTO = {
         caracteristica: 'COMUM',
         variacao:      'FIXA',
         integralizar:  'SIM',
-        // MANTER preserva o valor apurado da verba-base. INTEGRALIZAR manda o
+        // MANTER conserva o valor apurado da verba-base. INTEGRALIZAR manda o
         // reflexo tomar o mês cheio — foi o que fez a multa incidir sobre a
         // remuneração inteira em vez do valor refletido.
         tratamentoDaFracao: 'MANTER',
         comportamento: 'VALOR_MENSAL',
         incidenciaINSS: false, incidenciaIRPF: false, incidenciaFGTS: false,
+    },
+
+    2426: {   // RSR/DSR como reflexo de HE, intrajornada ou adicional noturno
+        // TBVERBA (ids 42-47, 139, 144, 161, 189, 199): STPCOMPORTAMENTOREFLEXO='VM'
+        // (VALOR_MENSAL). A fórmula real usa divisor=DU e quantidade=ICL/RF,
+        // mas o montador ainda não gera esses tipos para reflexos — o calculista
+        // ajusta a fórmula do RSR após importar.
+        divisor:       { tipo: 'OUTRO_VALOR', valor: 1 },
+        multiplicador: 1,
+        quantidade:    { tipo: 'INFORMADA', valor: 1 },
+        ocorrenciaDePagamento: 'MENSAL',
+        caracteristica: 'COMUM',
+        variacao:      'VARIAVEL',
+        integralizar:  'SIM',
+        tratamentoDaFracao: 'MANTER',
+        comportamento: 'VALOR_MENSAL',
+        incidenciaINSS: true, incidenciaIRPF: true, incidenciaFGTS: true,
     },
 }
 
@@ -177,6 +355,63 @@ const PJC_PADRAO_REFLEXO_POR_ASSUNTO = {
 const PJC_NAO_INTEGRALIZAR_BASE = [
     8823,   // Saldo de Salário
 ]
+
+
+// ── conversão de percentual ───────────────────────────────────
+//
+// A Ficha v3.0 pode trazer 'percentual' em vez de 'multiplicador' quando a
+// sentença determina percentual divergente do padrão. Preencher multiplicador
+// a partir do percentual evita que a LLM precise conhecer a fórmula interna.
+//
+// Dois grupos:
+//   ADICIONAL: multiplicador = percentual / 100
+//     (o adicional é uma fração do valor base; ex: noturno 20% → mult 0.20)
+//   TOTAL: multiplicador = 1 + percentual / 100
+//     (o trabalhador recebe a hora-base + o adicional; ex: HE 50% → mult 1.50)
+//
+// pjcConverterPercentual(ficha) → array de avisos
+
+const PJC_ASSUNTO_PERCENTUAL_TOTAL = [
+    2086,   // Horas Extras
+    2140,   // Intervalo Intrajornada
+    2139,   // Intervalo Interjornadas
+    2117,   // Supressão de Horas Extras
+]
+
+const PJC_ASSUNTO_PERCENTUAL_ADICIONAL = [
+    1663,   // Adicional Noturno
+    1666,   // Adicional de Insalubridade
+    1681,   // Adicional de Periculosidade
+]
+
+function pjcConverterPercentual(ficha) {
+    const avisos = []
+    ;(ficha.verbas || []).forEach(v => {
+        if (v.percentual == null) return
+        if (v.multiplicador != null) return   // Ficha já trouxe; não sobrescrever
+
+        const pct = Number(v.percentual)
+        if (!isFinite(pct) || pct <= 0) {
+            avisos.push('"' + v.nome + '": percentual inválido (' + v.percentual + ') — ignorado')
+            return
+        }
+
+        if (PJC_ASSUNTO_PERCENTUAL_TOTAL.indexOf(v.assuntoCnj) >= 0) {
+            // ex: HE 60% → o trabalhador recebe 1.60 × hora-base
+            v.multiplicador = Math.round((1 + pct / 100) * 1e8) / 1e8
+            avisos.push('"' + v.nome + '": percentual ' + pct + '% → multiplicador ' + v.multiplicador)
+        } else if (PJC_ASSUNTO_PERCENTUAL_ADICIONAL.indexOf(v.assuntoCnj) >= 0) {
+            // ex: insalubridade grau máximo 40% → 0.40 × salário-mínimo
+            v.multiplicador = Math.round((pct / 100) * 1e8) / 1e8
+            avisos.push('"' + v.nome + '": percentual ' + pct + '% → multiplicador ' + v.multiplicador)
+        } else {
+            avisos.push('"' + v.nome + '": percentual ' + pct + '% presente mas assunto '
+                + v.assuntoCnj + ' não tem regra de conversão — ignorado; defina multiplicador diretamente')
+        }
+    })
+    return avisos
+}
+
 
 function pjcAjustarIntegralizacao(ficha) {
     const avisos = []
@@ -314,13 +549,24 @@ function _pjc_competencias(inicioISO, fimISO) {
 // Devolve a lista de avisos, para que o painel mostre o que foi
 // preenchido por padrão — nada é aplicado em silêncio.
 //
+// Ordem de execução:
+//   1. Converte 'percentual' → multiplicador (antes de aplicar perfis,
+//      para que o perfil não sobrescreva o percentual da sentença)
+//   2. Gera histórico de remuneração se ausente
+//   3. Ajusta integralizar por verba-base (saldo de salário)
+//   4. Aplica perfis verba a verba
+//
 // pjcAplicarPadroes(ficha) → array de avisos
 
 function pjcAplicarPadroes(ficha) {
     let avisos = []
     if (!ficha || !Array.isArray(ficha.verbas)) return avisos
 
+    // 1. Percentual → multiplicador (antes dos perfis — a sentença manda)
+    avisos = avisos.concat(pjcConverterPercentual(ficha))
+    // 2. Histórico de remuneração
     avisos = avisos.concat(pjcGerarHistoricosDaRemuneracao(ficha))
+    // 3. Integralizar por verba-base
     avisos = avisos.concat(pjcAjustarIntegralizacao(ficha))
 
     const temHistorico = (ficha.historicosSalariais || []).length > 0
@@ -341,7 +587,7 @@ function pjcAplicarPadroes(ficha) {
                              'caracteristica', 'proporcionalizarBase', 'tratamentoDaFracao', 'comportamento',
                              'proporcionalizarHistorico', 'excluirFaltaJustificada',
                              'excluirFaltaNaoJustificada', 'excluirFeriasGozadas',
-                             'incidenciaINSS', 'incidenciaIRPF', 'incidenciaFGTS']) {
+                             'incidenciaINSS', 'incidenciaIRPF', 'incidenciaFGTS', 'natureza']) {
             if (perfil[campo] === undefined) continue
             if (v[campo] !== undefined && v[campo] !== null) continue
             v[campo] = _pjc_copiar(perfil[campo])

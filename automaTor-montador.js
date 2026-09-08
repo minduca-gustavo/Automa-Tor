@@ -772,6 +772,8 @@
         texto(vp, "quantidade", pago.quantidade != null ? pago.quantidade : 1);
       }
 
+      gerarOcorrenciasZeradas(doc, no, v, c);
+
       nos[v.nome] = no;
       alvo.appendChild(no);
     });
@@ -993,6 +995,122 @@
       xml: '<?xml version="1.0" encoding="ISO-8859-1"?>' + paraAscii(corpo),
       avisos: avisos
     };
+  }
+
+  // ──────────────────────────────────────── ocorrências zeradas ─────────────
+  //
+  // Gera uma <OcorrenciaDeVerba> por período (mensal, dezembro, desligamento ou
+  // período aquisitivo) com todos os valores calculados em null e ativo=true.
+  //
+  // Isso replica o estado inicial que o PJe-Calc cria quando o calculista
+  // adiciona a verba manualmente: as linhas de período já aparecem na tela e
+  // podem ser ativadas/desativadas antes do primeiro Regerar.
+  //
+  // Campos confirmados no arquivo PROCESSO_977560 (Calc. 27/08/2026):
+  //   - tag: <OcorrenciaDeVerba>
+  //   - divisor/multiplicador: copiados da fórmula (não null)
+  //   - quantidade: 0 (Regerar computa os avos/horas reais)
+  //   - devido, base, indiceAcumulado: null
+  //   - pago, pagoIntegral: 0
+  //   - ativo: true
+
+  function gerarOcorrenciasZeradas(doc, no, v, c) {
+    var lista = caminho(no, "ocorrencias/List");
+    if (!lista) return;
+
+    var ocPag  = v.ocorrenciaDePagamento || 'DESLIGAMENTO';
+    var inicio = (v.periodo && v.periodo.inicio) || c.admissao;
+    var fim    = (v.periodo && v.periodo.fim)    || c.demissao || c.dataLiquidacao;
+    if (!inicio || !fim) return;
+
+    // Divisor: só 'OUTRO_VALOR' tem valor escalar; outros (CARGA_HORARIA,
+    // DIAS_UTEIS) ficam null — o Regerar resolve pelo tipo.
+    var divVal  = (v.divisor && v.divisor.tipo === 'OUTRO_VALOR' && v.divisor.valor != null)
+                  ? v.divisor.valor : 'null';
+    var multVal = v.multiplicador != null ? v.multiplicador : 'null';
+
+    // INFORMADA usa 'INFORMADO'; qualquer outro (CALCULADA, REFLEXO) usa 'CALCULADO'.
+    var tipoValor = (v.tipo === 'INFORMADA') ? 'INFORMADO' : 'CALCULADO';
+    var car = v.caracteristica || 'COMUM';
+    var vNome = no.nodeName;
+    var vId   = texto(no, "id");
+
+    _pjc_periodosOcorrencia(ocPag, inicio, fim).forEach(function (p) {
+      lista.appendChild(fragmento(doc,
+        '<OcorrenciaDeVerba>' +
+        '<id>' + idNovo() + '</id><versao>0</versao>' +
+        '<dataInicial>' + paraEpoch(p.ini) + '</dataInicial>' +
+        '<dataFinal>'   + paraEpoch(p.fim) + '</dataFinal>' +
+        '<divisor>'       + divVal  + '</divisor>' +
+        '<multiplicador>' + multVal + '</multiplicador>' +
+        '<quantidade>0</quantidade>' +
+        '<quantidadeIntegral>0</quantidadeIntegral>' +
+        '<dobra>false</dobra>' +
+        '<devido>null</devido><devidoIntegral>null</devidoIntegral>' +
+        '<pago>0</pago><pagoIntegral>0</pagoIntegral>' +
+        '<ativo>true</ativo>' +
+        '<valor>' + tipoValor + '</valor>' +
+        '<comporPrincipal>SIM</comporPrincipal>' +
+        '<base>null</base><baseIntegral>null</baseIntegral>' +
+        '<dataInicialPeriodoAquisitivo>null</dataInicialPeriodoAquisitivo>' +
+        '<dataFinalPeriodoAquisitivo>null</dataFinalPeriodoAquisitivo>' +
+        '<feriasIndenizadas>false</feriasIndenizadas>' +
+        '<feriasComAbono>false</feriasComAbono>' +
+        '<indiceAcumulado>null</indiceAcumulado>' +
+        '<caracteristica>' + car  + '</caracteristica>' +
+        '<ocorrenciaDePagamento>' + ocPag + '</ocorrenciaDePagamento>' +
+        '<verbaDeCalculo><' + vNome + '><internalRef>' + vId +
+        '</internalRef></' + vNome + '></verbaDeCalculo>' +
+        '<ocorrenciaOriginal>null</ocorrenciaOriginal>' +
+        '</OcorrenciaDeVerba>'));
+    });
+  }
+
+  // Retorna lista de { ini, fim } (datas ISO) para cada ocorrência do período.
+  function _pjc_periodosOcorrencia(ocPag, inicioISO, fimISO) {
+    var periodos = [];
+    var a = inicioISO.split('-').map(Number);
+    var b = fimISO.split('-').map(Number);
+    var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+
+    if (ocPag === 'DESLIGAMENTO') {
+      // Uma ocorrência única na data de demissão/liquidação.
+      periodos.push({ ini: fimISO, fim: fimISO });
+
+    } else if (ocPag === 'DEZEMBRO') {
+      // 13º SALÁRIO: uma ocorrência por ano, fixada no dia 20 de dezembro
+      // (prazo legal do segundo lote). No ano de rescisão, quando esta ocorre
+      // antes de dezembro/20, usa-se a data de demissão (pagamento na rescisão).
+      for (var ano = a[0]; ano <= b[0]; ano++) {
+        var antesDez20 = (b[0] === ano) && (b[1] < 12 || (b[1] === 12 && b[2] < 20));
+        var d = antesDez20 ? fimISO : (ano + '-12-20');
+        periodos.push({ ini: d, fim: d });
+      }
+
+    } else if (ocPag === 'MENSAL') {
+      // Uma por mês: do primeiro ao último dia.
+      var ano = a[0], mes = a[1];
+      while (ano < b[0] || (ano === b[0] && mes <= b[1])) {
+        var ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+        periodos.push({
+          ini: ano + '-' + pad(mes) + '-01',
+          fim: ano + '-' + pad(mes) + '-' + pad(ultimoDia)
+        });
+        if (++mes > 12) { mes = 1; ano++; }
+        if (periodos.length > 360) break;     // trava contra datas absurdas
+      }
+
+    } else if (ocPag === 'PERIODO_AQUISITIVO') {
+      // Férias: uma por período aquisitivo. Data de referência: 1º de janeiro
+      // do ano seguinte ao início do período (ou demissão, o que vier antes).
+      for (var ano = a[0]; ano <= b[0]; ano++) {
+        var ref = (ano + 1) + '-01-01';
+        if (ref > fimISO) ref = fimISO;
+        periodos.push({ ini: ref, fim: ref });
+      }
+    }
+
+    return periodos;
   }
 
   // ------------------------------------------------------------------- zip ---
