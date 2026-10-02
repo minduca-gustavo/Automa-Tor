@@ -67,6 +67,38 @@ const PJC_PADRAO_POR_CARACTERISTICA = {
 // Para verbas sem característica própria. O código é o assuntoCnj.
 // O campo 'tipo' documenta o tipo mais comum; a Ficha pode sobrepor.
 
+// ── assunto → característica ──────────────────────────────────
+//
+// Os perfis acima são indexados por característica, mas a Ficha v3.0 não
+// pede esse campo à LLM — ele é estrutural, não vem da sentença. Sem esta
+// tradução, 13º e Férias caíam no PJC_PADRAO_GENERICO, que não define
+// ocorrenciaDePagamento; o montador então assumia DESLIGAMENTO e gerava uma
+// única ocorrência na data da rescisão, em vez de uma por ano/período.
+
+const PJC_ASSUNTO_PARA_CARACTERISTICA = {
+    2641:  'AVISO_PREVIO',
+    2666:  'DECIMO_TERCEIRO_SALARIO',
+    2662:  'FERIAS',
+    8821:  'FERIAS',            // Férias proporcionais
+    2663:  'FERIAS',            // Abono pecuniário
+}
+
+function pjcInferirCaracteristica(ficha) {
+    const avisos = []
+    ;(ficha.verbas || []).forEach(v => {
+        if (v.caracteristica) return
+        if (v.tipo === 'REFLEXO') return          // reflexo é sempre COMUM
+        const car = PJC_ASSUNTO_PARA_CARACTERISTICA[v.assuntoCnj]
+        if (car) {
+            v.caracteristica = car
+            avisos.push('"' + v.nome + '": característica ' + car +
+                ' inferida do assunto ' + v.assuntoCnj)
+        }
+    })
+    return avisos
+}
+
+
 const PJC_PADRAO_POR_ASSUNTO = {
 
     // Saldo de Salário: proporcionaliza pelo histórico (são dias do mês da
@@ -562,6 +594,9 @@ function pjcAplicarPadroes(ficha) {
     let avisos = []
     if (!ficha || !Array.isArray(ficha.verbas)) return avisos
 
+    // 0. Característica inferida do assunto — precisa vir antes de tudo,
+    //    porque é a chave de busca dos perfis de aviso prévio, 13º e férias.
+    avisos = avisos.concat(pjcInferirCaracteristica(ficha))
     // 1. Percentual → multiplicador (antes dos perfis — a sentença manda)
     avisos = avisos.concat(pjcConverterPercentual(ficha))
     // 2. Histórico de remuneração

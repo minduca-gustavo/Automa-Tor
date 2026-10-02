@@ -1021,7 +1021,16 @@
     var ocPag  = v.ocorrenciaDePagamento || 'DESLIGAMENTO';
     var inicio = (v.periodo && v.periodo.inicio) || c.admissao;
     var fim    = (v.periodo && v.periodo.fim)    || c.demissao || c.dataLiquidacao;
-    if (!inicio || !fim) return;
+
+    // Ocorrências explícitas vencem a inferência. O lançador as monta a partir
+    // do pedido ("10/12 avos de 2024, 2023") e já sabe a quantidade de cada
+    // uma. Inferir pelo tipo de pagamento é o caminho de quando essa
+    // informação não existe — e foi ele que gerou uma única ocorrência de
+    // janeiro quando a verba chegou sem 'caracteristica' e o padrão caiu
+    // em DESLIGAMENTO.
+    var explicitas = Array.isArray(v.ocorrencias) && v.ocorrencias.length
+                     ? v.ocorrencias : null;
+    if (!explicitas && (!inicio || !fim)) return;
 
     // Divisor: só 'OUTRO_VALOR' tem valor escalar; outros (CARGA_HORARIA,
     // DIAS_UTEIS) ficam null — o Regerar resolve pelo tipo.
@@ -1035,7 +1044,17 @@
     var vNome = no.nodeName;
     var vId   = texto(no, "id");
 
-    _pjc_periodosOcorrencia(ocPag, inicio, fim).forEach(function (p) {
+    var periodos = explicitas
+      ? explicitas.map(function (o) {
+          return { ini: o.inicio, fim: o.fim,
+                   qtd: o.quantidade != null ? o.quantidade : 0,
+                   ativo: o.ativo === false ? 'false' : 'true' };
+        })
+      : _pjc_periodosOcorrencia(ocPag, inicio, fim).map(function (p) {
+          return { ini: p.ini, fim: p.fim, qtd: 0, ativo: 'true' };
+        });
+
+    periodos.forEach(function (p) {
       lista.appendChild(fragmento(doc,
         '<OcorrenciaDeVerba>' +
         '<id>' + idNovo() + '</id><versao>0</versao>' +
@@ -1043,12 +1062,12 @@
         '<dataFinal>'   + paraEpoch(p.fim) + '</dataFinal>' +
         '<divisor>'       + divVal  + '</divisor>' +
         '<multiplicador>' + multVal + '</multiplicador>' +
-        '<quantidade>0</quantidade>' +
-        '<quantidadeIntegral>0</quantidadeIntegral>' +
+        '<quantidade>' + p.qtd + '</quantidade>' +
+        '<quantidadeIntegral>' + p.qtd + '</quantidadeIntegral>' +
         '<dobra>false</dobra>' +
         '<devido>null</devido><devidoIntegral>null</devidoIntegral>' +
         '<pago>0</pago><pagoIntegral>0</pagoIntegral>' +
-        '<ativo>true</ativo>' +
+        '<ativo>' + p.ativo + '</ativo>' +
         '<valor>' + tipoValor + '</valor>' +
         '<comporPrincipal>SIM</comporPrincipal>' +
         '<base>null</base><baseIntegral>null</baseIntegral>' +
