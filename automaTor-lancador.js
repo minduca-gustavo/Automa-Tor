@@ -236,7 +236,9 @@ function pjcLancar(pedido) {
 
     const ficha = {
         anexo: 'PJC-3.0',
-        processo: {
+        // Bloco do processo: se veio de dadosProcessuais() (origem PJE), passa
+        // inteiro; o formato antigo, com nomes soltos, continua aceito.
+        processo: (p.origem === 'PJE') ? _pjcl_copia(p) : {
             numeroCNJ:    p.numeroCNJ || null,
             dataAutuacao: p.autuacao  || null,
             valorDaCausa: p.valorDaCausa != null ? p.valorDaCausa : null,
@@ -246,7 +248,7 @@ function pjcLancar(pedido) {
         contrato: {
             admissao:          c.admissao,
             demissao:          c.demissao,
-            ajuizamento:       c.ajuizamento || p.autuacao || null,
+            ajuizamento:       c.ajuizamento || p.dataAutuacao || p.autuacao || null,
             dataLiquidacao:    c.dataLiquidacao || null,
             regime:            c.regime || 'INTEGRAL',
             cargaHorariaPadrao: c.cargaHorariaPadrao || 220,
