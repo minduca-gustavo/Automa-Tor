@@ -1,0 +1,110 @@
+{
+    "Calculo": {
+        "gprec": {
+            "dataCalculo": "",
+            "nomeBeneficiario": "",
+            "documentoFiscalBeneficiario": "",
+            "liquidoExequente": "",
+            "inssBeneficiario": "",
+            "inssExecutado": "",
+            "impostoRenda": "",
+            "depositoFgts": "",
+            "custasJudiciais": "",
+            "honorariosReclamante": [
+                {
+                    "label": "honorario",
+                    "nome": "",
+                    "documentoFiscal": "",
+                    "valor": "",
+                    "impostoRenda": "",
+                    "tipo": ""
+                }
+            ],
+            "honorariosReclamado": [
+                {
+                    "label": "honorario",
+                    "nome": "",
+                    "documentoFiscal": "",
+                    "valor": "",
+                    "impostoRenda": "",
+                    "tipo": ""
+                }
+            ]
+        },
+        "dadosEstruturados": {
+            "dataLiquidacao": "",
+            "hashLiquidacao": "",
+            "contrSocialDezPorcento": "",
+            "contrSocialMeioPorcento": "",
+            "custasReclamado": "",
+            "custasReclamante": "",
+            "debitoReclamantePensaoAlimenticia": "",
+            "debitoReclamantePrevidenciaPrivada": "",
+            "fgtsDepositoContaVinculada": "",
+            "impostoRenda": "",
+            "inssReclamado": "",
+            "inssReclamante": "",
+            "jurosMora": "",
+            "jurosPrevidenciaPrivada": "",
+            "valorPrincipal": "",
+            "tipoRegistroCalculo": "",
+            "multas": [],
+            "honorarios": [
+                {
+                    "label": "honorario",
+                    "descricao": "",
+                    "docFiscalCredor": "",
+                    "docFiscalDevedor": "",
+                    "impostoRendaHonorario": "",
+                    "nomeCredor": "",
+                    "nomeDevedor": "",
+                    "valor": ""
+                }
+            ]
+        },
+        "id": "",
+        "versao": "",
+        "atualizacao": "",
+        "hashCodeLiquidacao": "",
+        "dataCriacao": "",
+        "dataAdmissao": "",
+        "dataDemissao": "",
+        "dataAjuizamento": "",
+        "valorUltimaRemuneracao": "",
+        "valorMaiorRemuneracao": "",
+        "dataInicioCalculo": "",
+        "dataTerminoCalculo": "",
+        "valorCargaHorariaPadrao": "",
+        "sabadoDiaUtil": "",
+        "projetaAvisoIndenizado": "",
+        "consideraFeriadoEstadual": "",
+        "prescricaoFgts": "",
+        "prescricaoQuinquenal": "",
+        "limitarAvosAoPeriodoDoCalculo": "",
+        "zeraValorNegativo": "",
+        "consideraFeriadoMunicipal": "",
+        "tipoCalculo": "",
+        "prazoFeriasProporcional": "",
+        "dataDeLiquidacao": "",
+        "regimeDoContrato": "",
+        "indicesAcumulados": "",
+        "usuarioCriador": "",
+        "apuracaoPrazoDoAvisoPrevio": "",
+        "prazoAvisoInformado": "",
+        "ativo": "",
+        "processoInformadoManualmente": "",
+        "comentarios": "",
+        "idSetor": "",
+        "instancia": "",
+        "validado": "",
+        "hashCalculoCorreto": "",
+        "hashAtualizacaoCorreto": "",
+        "diaFechamentoMes": "",
+        "calculoExterno": "",
+        "parcelasAtualizaveisCreditosReclamante": "",
+        "parcelasAtualizaveisDescontoCreditosReclamante": "",
+        "parcelasAtualizaveisOutrosDebitosReclamado": "",
+        "parcelasAtualizaveisDebitosReclamante": "",
+        "versaoDoSistema": ""
+    }
+}
