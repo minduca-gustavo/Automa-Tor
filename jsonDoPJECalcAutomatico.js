@@ -11275,28 +11275,29 @@ let calculoPadrao = {
   }
 }
 function gprec ({dataCalculo, nomeBeneficiario, documentoFiscalBeneficiario, liquidoExequente, inssBeneficiario, inssExecutado, impostoRenda, depositoFgts, custasJudiciais, honorariosReclamado, honorariosReclamante}){
-    let dataCalculolabel= "dataCalculo"
-    let nomeBeneficiariolabel= "nomeBeneficiario"
-    let documentoFiscalBeneficiariolabel= "documentoFiscalBeneficiario"
-    let liquidoExequentelabel= "liquidoExequente"
-    let inssBeneficiariolabel= "inssBeneficiario"
-    let inssExecutadolabel= "inssExecutado"
-    let impostoRendalabel= "impostoRenda"
-    let depositoFgtslabel= "depositoFgts"
-    let custasJudiciaislabel= "custasJudiciais"
-    let honorariosReclamantelabel= "honorariosReclamante"
-    let honorariosReclamadolabel= "honorariosReclamado"
-    return {gprec: {gprec: {dataCalculo, nomeBeneficiario, documentoFiscalBeneficiario, liquidoExequente, inssBeneficiario, inssExecutado, impostoRenda, depositoFgts, custasJudiciais, honorariosReclamado, honorariosReclamante}}}
+    return {gprec: {dataCalculo, nomeBeneficiario, documentoFiscalBeneficiario, liquidoExequente, inssBeneficiario, inssExecutado, impostoRenda, depositoFgts, custasJudiciais, honorariosReclamado, honorariosReclamante}}
 }
 
-function jsonToXml(objeto){
-    if(Array.isArray(objeto)){
-
+function jsonToXml(objeto) {
+  let xml = ''
+  for (let propriedade in objeto) {
+    xml += Array.isArray(objeto[propriedade]) ? '' : "<" + propriedade + ">"
+    if (Array.isArray(objeto[propriedade])) {
+      for (let array in objeto[propriedade]) {
+        xml += "<" + propriedade + ">"
+        xml += OBJtoXML(objeto[propriedade][array])
+        xml += "</" + propriedade + ">"
+      }
+    } else if (typeof objeto[propriedade] == "object") {
+      xml += OBJtoXML(objeto[propriedade])
+    } else {
+      xml += objeto[propriedade]
     }
-    for (let k of Object.values()){
-        
-    }
+    xml += Array.isArray(objeto[propriedade]) ? '' : "</" + propriedade + ">"
+  }
+  return xml.replace(/<\/?[0-9]{1,}>/g, '')
 }
+
 function honorarioGprec({nome, documentoFiscal, valor, impostoRenda, tipo}){
     // label honorariosReclamante ou honorariosReclamado
     return {honorario:{honorario:{nome, documentoFiscal, valor, impostoRenda, tipo}}}

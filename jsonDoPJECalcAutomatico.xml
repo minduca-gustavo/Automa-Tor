@@ -1,0 +1,57 @@
+<tudo>
+<gprec>
+    <dataCalculo>1791169200000</dataCalculo>
+    <nomeBeneficiario>CLAUDINEIA APARECIDA ALVES DE SOUZA</nomeBeneficiario>
+    <documentoFiscalBeneficiario>254.297.468-35</documentoFiscalBeneficiario>
+    <liquidoExequente>9069.44</liquidoExequente>
+    <inssBeneficiario>203.09</inssBeneficiario>
+    <inssExecutado>702.22</inssExecutado>
+    <impostoRenda>0.00</impostoRenda>
+    <depositoFgts>814.53</depositoFgts>
+    <custasJudiciais>286.31</custasJudiciais>
+    <honorariosReclamante></honorariosReclamante>
+    <honorariosReclamado>
+        <honorario>
+            <nome>JOÃO HENRIQUE FERREIRA DIGNANI</nome>
+            <documentoFiscal>null</documentoFiscal>
+            <valor>2517.50</valor>
+            <impostoRenda>0.00</impostoRenda>
+            <tipo>PER</tipo>
+            <nome>HENRIQUE BRAGANCA PINHEIRO CECATTO</nome>
+            <documentoFiscal>469.673.818-30</documentoFiscal>
+            <valor>1008.71</valor>
+            <impostoRenda>0.00</impostoRenda>
+            <tipo>ADV</tipo>
+        </honorario>
+    </honorariosReclamado>
+</gprec>
+
+<gprec>
+    <dataCalculo>1791169200000</dataCalculo>
+    <nomeBeneficiario>CLAUDINEIA APARECIDA ALVES DE SOUZA</nomeBeneficiario>
+    <documentoFiscalBeneficiario>254.297.468-35</documentoFiscalBeneficiario>
+    <liquidoExequente>9069.44</liquidoExequente>
+    <inssBeneficiario>203.09</inssBeneficiario>
+    <inssExecutado>702.22</inssExecutado>
+    <impostoRenda>0.00</impostoRenda>
+    <depositoFgts>814.53</depositoFgts>
+    <custasJudiciais>286.31</custasJudiciais>
+    <honorariosReclamante></honorariosReclamante>
+    <honorariosReclamado>
+        <honorario>
+            <nome>JOÃO HENRIQUE FERREIRA DIGNANI</nome>
+            <documentoFiscal>null</documentoFiscal>
+            <valor>2517.50</valor>
+            <impostoRenda>0.00</impostoRenda>
+            <tipo>PER</tipo>
+        </honorario>
+        <honorario>
+            <nome>HENRIQUE BRAGANCA PINHEIRO CECATTO</nome>
+            <documentoFiscal>469.673.818-30</documentoFiscal>
+            <valor>1008.71</valor>
+            <impostoRenda>0.00</impostoRenda>
+            <tipo>ADV</tipo>
+        </honorario>
+    </honorariosReclamado>
+</gprec>
+</tudo>
