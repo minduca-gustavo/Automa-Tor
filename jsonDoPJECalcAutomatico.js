@@ -11285,11 +11285,11 @@ function jsonToXml(objeto) {
     if (Array.isArray(objeto[propriedade])) {
       for (let array in objeto[propriedade]) {
         xml += "<" + propriedade + ">"
-        xml += OBJtoXML(objeto[propriedade][array])
+        xml += jsonToXml(objeto[propriedade][array])
         xml += "</" + propriedade + ">"
       }
     } else if (typeof objeto[propriedade] == "object") {
-      xml += OBJtoXML(objeto[propriedade])
+      xml += jsonToXml(objeto[propriedade])
     } else {
       xml += objeto[propriedade]
     }
